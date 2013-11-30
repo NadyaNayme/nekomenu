@@ -10,66 +10,83 @@ APPSDIR = "/usr/share/applications"
 
 #Functions
 def updateMenuFiles():
-    #A list of the main application categories defined by freedesktop.org
-    APPCATEGORIES = ["Accessories", "Audio", "Video", "Development", "Education", "Game", "Graphics", "Network", "Office", "Science", "Settings", "System", "Utilities"]
-    #Empty list to be populated by all applications
+    import xml.etree.ElementTree as ET    
+    APPCATEGORIES = ["Accessories", "Audio", "Video", "Development", "Education", "Game", "Graphics", "Network", "Office", "Science", "Settings", "System", "Utility"]    
+    menuRoot = ET.Element("openbox_pipe_menu")
+    
+    for category in APPCATEGORIES:
+        elem = ET.Element("menu", {"id" : "neko_" + category, "label" : category})
+        menuRoot.append(elem)
+    
     APPS = []
     appList = os.listdir(APPSDIR)
     appHash = hashlib.sha1()
+    
     for app in appList:
-        #If it isn't a .desktop file, ignore it
         if not ".desktop" in app:
             continue
-        #Puts the whole .desktop file in a string
         appFile = open(os.path.join(APPSDIR, app), "rb")
         appInfo = appFile.read(os.stat(os.path.join(APPSDIR, app)).st_size)
         appFile.close()
-        #If it doesn't have a "Categories" entry, ignore it
         if appInfo.find("Categories=") == -1:
             continue
-        #Find the application name
+        #Name
         appName = appInfo[appInfo.find("Name=")+5:appInfo.find("\n", appInfo.find("Name=")+5)]
-        #Find the application command and remove the %f/%u part
+        
+        #Command
         appCommand = appInfo[appInfo.find("Exec=")+5:appInfo.find("\n", appInfo.find("Exec=")+5)]
         if "%" in appCommand:
             appCommand = appCommand[0:appCommand.find("%")-1]
-        #Check if application is supposed to be executed in a Terminal
-        TRUESTRINGS = ("True", "TRUE", "true")
-        FALSESTRINGS = ("False", "FALSE", "false")
         checkTerminal = appInfo[appInfo.find("Terminal=")+9:appInfo.find("\n", appInfo.find("Terminal=")+9)]
-        if checkTerminal in TRUESTRINGS:
+        if checkTerminal in ("True", "TRUE", "true"):
             appCommand = "x-terminal-emulator -e " + appCommand
-        #Find which of the main categories fits this application, if none, put it in "Accessories" 
+        
+        #Categories
         appCats = appInfo[appInfo.find("Categories=")+11:appInfo.find("\n", appInfo.find("Categories=")+11)].split(";")
         if "" in appCats:
             appCats.remove("")
         appCategory = "Accessories"
         for cat in appCats:
             if cat in APPCATEGORIES:
-                appCategory = cat   
-        APPS.append({"name":appName, "category":appCategory, "command":appCommand})
-        #Add this application to the main hash
-        appHash.update(app)
-    #Start writing the menu to ~/.config/nekomenu/nekomenu.xml
-    menuFile = open(os.path.join(MENUFOLDER, "nekomenu.xml"), "wb")
-    menuFile.write("<openbox_pipe_menu>")
-    for category in APPCATEGORIES:
-        menuString = ""
-        for app in APPS:
-            if app["category"] == category:
-                menuString += "\n\t\t<item label=\"" + app["name"] + "\">\n\t\t\t<action name=\"Execute\">\n\t\t\t\t<execute>" + app["command"] + "</execute>\n\t\t\t</action>\n\t\t</item>"
-        #If the whole category is empty, do not put an entry for it (to avoid empty menus)
-        if menuString != "":
-            menuFile.write("\n\t<menu id=\"neko_" + category + "\" label=\"" + category + "\">")
-            menuFile.write(menuString)
-            menuFile.write("\n\t</menu>")
+                appCategory = cat
         
-    menuFile.write("\n</openbox_pipe_menu>")
-    menuFile.close()
-    #Write the hash to ~/.config/nekomenu/apphash
+        #Summarize information and put in XML format. This is ugly, but blame it on openbox's pipe menu API.
+        firstLevel = ET.Element("item", {"label": appName})
+        secondLevel = ET.Element("action", {"name": "Execute"})
+        thirdLevel = ET.Element("execute")
+        thirdLevel.text = appCommand
+        
+        firstLevel.text = "\n"
+        firstLevel.tail = "\n"
+        secondLevel.text = "\n\t"
+        secondLevel.tail = "\n"
+        thirdLevel.tail = "\n"
+        
+        secondLevel.append(thirdLevel)
+        firstLevel.append(secondLevel)
+        
+        if menuRoot.find("./menu/[@label='" + appCategory + "']") != None:
+            menuRoot.find("./menu/[@label='" + appCategory + "']").append(firstLevel)
+        else:
+            menuRoot.find("./menu/[@label='Accessories']").append(firstLevel)
+        
+        #Update hash
+        appHash.update(app)
+            
+
     hashFile = open(os.path.join(MENUFOLDER, "apphash"), "wb")
     hashFile.write(appHash.hexdigest())
     hashFile.close()
+    
+    emptyElements = []
+    for element in menuRoot:
+        if len(element) == 0:
+            emptyElements.append(element)
+    for element in emptyElements:
+        menuRoot.remove(element)
+            
+    nekoMenu = ET.ElementTree(menuRoot)
+    nekoMenu.write(os.path.join(MENUFOLDER, "nekomenu.xml"))
 
 #Displays the menu in ~/.config/nekomenu/nekomenu.xml
 def displayMenu():
