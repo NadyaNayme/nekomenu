@@ -11,7 +11,7 @@ APPSDIR = "/usr/share/applications"
 #Functions
 def updateMenuFiles():
     import xml.etree.ElementTree as ET    
-    APPCATEGORIES = ["Accessories", "Audio", "Video", "Development", "Education", "Game", "Graphics", "Network", "Office", "Science", "Settings", "System", "Utility"]    
+    APPCATEGORIES = ["Audio", "Video", "Development", "Education", "Game", "Graphics", "Network", "Office", "Science", "Settings", "System", "Utility", "Other"]    
     menuRoot = ET.Element("openbox_pipe_menu")
     
     for category in APPCATEGORIES:
@@ -23,6 +23,7 @@ def updateMenuFiles():
     appHash = hashlib.sha1()
     
     for app in appList:
+        appHash.update(app)
         if not ".desktop" in app:
             continue
         appFile = open(os.path.join(APPSDIR, app), "rb")
@@ -45,7 +46,7 @@ def updateMenuFiles():
         appCats = appInfo[appInfo.find("Categories=")+11:appInfo.find("\n", appInfo.find("Categories=")+11)].split(";")
         if "" in appCats:
             appCats.remove("")
-        appCategory = "Accessories"
+        appCategory = "Other"
         for cat in appCats:
             if cat in APPCATEGORIES:
                 appCategory = cat
@@ -68,12 +69,8 @@ def updateMenuFiles():
         if menuRoot.find("./menu/[@label='" + appCategory + "']") != None:
             menuRoot.find("./menu/[@label='" + appCategory + "']").append(firstLevel)
         else:
-            menuRoot.find("./menu/[@label='Accessories']").append(firstLevel)
-        
-        #Update hash
-        appHash.update(app)
-            
-
+            menuRoot.find("./menu/[@label='Other']").append(firstLevel)
+    
     hashFile = open(os.path.join(MENUFOLDER, "apphash"), "wb")
     hashFile.write(appHash.hexdigest())
     hashFile.close()
@@ -92,8 +89,8 @@ def updateMenuFiles():
 def displayMenu():
     menuFile = open(os.path.join(MENUFOLDER, "nekomenu.xml"), "rb")
     menuOutput = menuFile.read(os.stat(os.path.join(MENUFOLDER, "nekomenu.xml")).st_size)
-    print menuOutput
     menuFile.close()
+    print menuOutput
 
 #Main Script
 
@@ -108,7 +105,7 @@ if not os.path.isfile(os.path.join(MENUFOLDER, "apphash")):
 #Gets the data from ~/.config/nekomenu/apphash and compares it to the current state of /usr/share/applications
 #If they're different, update the menu then display. Otherwise, just display.
 hashFile = os.open(os.path.join(MENUFOLDER, "apphash"), os.O_RDONLY)
-currentAppHash = os.read(hashFile, 40)
+currentAppHash = os.read(hashFile, 64)
 os.close(hashFile)
 
 appList = os.listdir(APPSDIR)
