@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-
-#Dynamic menu for the Neko project.
-#Usable with any openbox desktop.
-
 import os, hashlib
 
 MENUFOLDER = os.path.expanduser("~/.config/nekomenu/")
@@ -90,7 +85,7 @@ def displayMenu():
     menuFile = open(os.path.join(MENUFOLDER, "nekomenu.xml"), "rb")
     menuOutput = menuFile.read(os.stat(os.path.join(MENUFOLDER, "nekomenu.xml")).st_size)
     menuFile.close()
-    print menuOutput
+    print(menuOutput)
 
 #Main Script
 
@@ -117,4 +112,4 @@ if appHash.hexdigest() == currentAppHash:
     displayMenu()
 else:
     updateMenuFiles()
-    displayMenu()
+displayMenu()
